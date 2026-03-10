@@ -443,6 +443,11 @@ ifeq ($(PLATFORM), OS_OPENBSD)
 	WARNING_FLAGS += -Wno-unused-lambda-capture
 endif
 
+WARNING_FLAGS += -Wno-redundant-move
+WARNING_FLAGS += -Wno-maybe-uninitialized
+WARNING_FLAGS += -Wno-range-loop-construct
+WARNING_FLAGS += -Wno-uninitialized
+
 ifndef DISABLE_WARNING_AS_ERROR
 	WARNING_FLAGS += -Werror
 endif
