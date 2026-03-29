@@ -466,5 +466,80 @@ db_bench: java
 	$(AM_V_GEN)mkdir -p $(BENCHMARK_MAIN_CLASSES)
 	$(AM_V_at)$(JAVAC_CMD) $(JAVAC_ARGS) -cp $(MAIN_CLASSES) -d $(BENCHMARK_MAIN_CLASSES) $(BENCHMARK_MAIN_SRC)/org/rocksdb/benchmark/*.java
 
+# ── Merge-operator JNI overhead benchmarks ────────────────────────────────────
+#
+# These benchmarks compare the performance of two SortedStringMergeOperator
+# implementations that keep values as comma-separated sorted strings:
+#
+#   merge_benchmark_cpp  – operator implemented in native C++ (no JNI per merge)
+#   merge_benchmark_java – operator implemented in Java (JNI callbacks per merge)
+#
+# Optional environment variables:
+#   MERGE_BENCH_KEYS       number of keys          (default: 10)
+#   MERGE_BENCH_MERGES     merge operands per key  (default: 2000)
+#   MERGE_BENCH_STRLEN     length of each operand  (default: 8)
+#
+# Example:
+#   make merge_benchmark_cpp MERGE_BENCH_KEYS=20 MERGE_BENCH_MERGES=5000
+#
+# Prerequisites: the native library must already be built (make rocksdbjava or
+# make rocksdbjavastatic from the repository root).
+
+MERGE_BENCH_KEYS   ?= 10
+MERGE_BENCH_MERGES ?= 2000
+MERGE_BENCH_STRLEN ?= 8
+
+# Path to the CMake build output directory (override if you built elsewhere)
+CMAKE_BUILD_DIR ?= ../build
+
+# Compute the expected platform-specific JNI library filename, mirroring the
+# ROCKSDBJNILIB logic in the root Makefile.  This works even after make clean
+# when no library file exists yet in target/.
+ifeq ($(shell uname -s),Darwin)
+  MERGE_BENCH_JNILIB := target/librocksdbjni-osx.jnilib
+else
+  MERGE_BENCH_JNILIB := target/librocksdbjni-linux$(ARCH).so
+endif
+
+# Copy the CMake-built library into target/ only when no library exists there
+# yet.  This bootstraps CMake-only workflows (where make rocksdbjava was not
+# run) without overwriting a library already produced by make rocksdbjava.
+merge_benchmark_sync_lib:
+	@if [ ! -f "$(MERGE_BENCH_JNILIB)" ]; then \
+	  if [ -f "$(CMAKE_BUILD_DIR)/java/librocksdbjni.so" ]; then \
+	    mkdir -p target; \
+	    echo "Copying $(CMAKE_BUILD_DIR)/java/librocksdbjni.so -> $(MERGE_BENCH_JNILIB)"; \
+	    cp "$(CMAKE_BUILD_DIR)/java/librocksdbjni.so" "$(MERGE_BENCH_JNILIB)"; \
+	  else \
+	    echo "WARNING: no native library found in target/ or $(CMAKE_BUILD_DIR)/java/"; \
+	    echo "         Run 'make rocksdbjava DEBUG_LEVEL=0' from the repository root first."; \
+	  fi; \
+	fi
+
+merge_benchmark_build: java merge_benchmark_sync_lib
+	$(AM_V_GEN)mkdir -p $(SAMPLES_MAIN_CLASSES)
+	$(AM_V_at)$(JAVAC_CMD) $(JAVAC_ARGS) -cp $(MAIN_CLASSES) -d $(SAMPLES_MAIN_CLASSES) \
+		$(SAMPLES_MAIN_SRC)/MergeOperatorBenchmark.java \
+		$(SAMPLES_MAIN_SRC)/CppMergeOperatorBenchmark.java \
+		$(SAMPLES_MAIN_SRC)/JavaMergeOperatorBenchmark.java
+
+merge_benchmark_cpp: merge_benchmark_build
+	$(AM_V_at)@rm -rf /tmp/merge_bench_cpp
+	$(JAVA_CMD) $(JAVA_ARGS) -Djava.library.path=target \
+		-cp "$(MAIN_CLASSES):$(SAMPLES_MAIN_CLASSES):target/*" \
+		CppMergeOperatorBenchmark /tmp/merge_bench_cpp \
+		$(MERGE_BENCH_KEYS) $(MERGE_BENCH_MERGES) $(MERGE_BENCH_STRLEN)
+	$(AM_V_at)@rm -rf /tmp/merge_bench_cpp
+
+merge_benchmark_java: merge_benchmark_build
+	$(AM_V_at)@rm -rf /tmp/merge_bench_java
+	$(JAVA_CMD) $(JAVA_ARGS) -Djava.library.path=target \
+		-cp "$(MAIN_CLASSES):$(SAMPLES_MAIN_CLASSES):target/*" \
+		JavaMergeOperatorBenchmark /tmp/merge_bench_java \
+		$(MERGE_BENCH_KEYS) $(MERGE_BENCH_MERGES) $(MERGE_BENCH_STRLEN)
+	$(AM_V_at)@rm -rf /tmp/merge_bench_java
+
+merge_benchmark: merge_benchmark_cpp merge_benchmark_java
+
 pmd:
 	$(MAVEN_CMD) pmd:pmd pmd:cpd pmd:check

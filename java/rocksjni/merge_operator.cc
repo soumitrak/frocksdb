@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 
+#include "include/org_rocksdb_AbstractMergeOperator.h"
 #include "include/org_rocksdb_StringAppendOperator.h"
 #include "include/org_rocksdb_UInt64AddOperator.h"
 #include "rocksdb/db.h"
@@ -25,6 +26,7 @@
 #include "rocksdb/statistics.h"
 #include "rocksdb/table.h"
 #include "rocksjni/cplusplus_to_java_convert.h"
+#include "rocksjni/merge_operator_jni_callback.h"
 #include "rocksjni/portal.h"
 #include "utilities/merge_operators.h"
 
@@ -95,4 +97,31 @@ void Java_org_rocksdb_UInt64AddOperator_disposeInternal(JNIEnv* /*env*/,
       reinterpret_cast<std::shared_ptr<ROCKSDB_NAMESPACE::MergeOperator>*>(
           jhandle);
   delete sptr_uint64_add_op;  // delete std::shared_ptr
+}
+
+/*
+ * Class:     org_rocksdb_AbstractMergeOperator
+ * Method:    createNewMergeOperator
+ * Signature: ()J
+ */
+jlong Java_org_rocksdb_AbstractMergeOperator_createNewMergeOperator(
+    JNIEnv* env, jobject jmerge_operator) {
+  auto* callback = new ROCKSDB_NAMESPACE::MergeOperatorJniCallback(
+      env, jmerge_operator);
+  auto* sptr =
+      new std::shared_ptr<ROCKSDB_NAMESPACE::MergeOperator>(callback);
+  return GET_CPLUSPLUS_POINTER(sptr);
+}
+
+/*
+ * Class:     org_rocksdb_AbstractMergeOperator
+ * Method:    disposeInternal
+ * Signature: (J)V
+ */
+void Java_org_rocksdb_AbstractMergeOperator_disposeInternal(
+    JNIEnv* /*env*/, jobject /*jobj*/, jlong jhandle) {
+  auto* sptr =
+      reinterpret_cast<std::shared_ptr<ROCKSDB_NAMESPACE::MergeOperator>*>(
+          jhandle);
+  delete sptr;  // delete std::shared_ptr wrapper
 }

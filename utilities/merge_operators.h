@@ -27,6 +27,7 @@ class MergeOperators {
   static std::shared_ptr<MergeOperator> CreateMaxOperator();
   static std::shared_ptr<MergeOperator> CreateBytesXOROperator();
   static std::shared_ptr<MergeOperator> CreateSortOperator();
+  static std::shared_ptr<MergeOperator> CreateSortedStringMergeOperator();
 
   // Will return a different merge operator depending on the string.
   static std::shared_ptr<MergeOperator> CreateFromStringId(

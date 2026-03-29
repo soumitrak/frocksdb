@@ -15,6 +15,7 @@
 #include "utilities/merge_operators/max_operator.h"
 #include "utilities/merge_operators/put_operator.h"
 #include "utilities/merge_operators/sortlist.h"
+#include "utilities/merge_operators/sorted_string/sortedstring.h"
 #include "utilities/merge_operators/string_append/stringappend.h"
 #include "utilities/merge_operators/string_append/stringappend2.h"
 #include "utilities/merge_operators/uint64add.h"
@@ -86,6 +87,14 @@ static int RegisterBuiltinMergeOperators(ObjectLibrary& library,
         guard->reset(new PutOperator());
         return guard->get();
       });
+  library.AddFactory<MergeOperator>(
+      ObjectLibrary::PatternEntry(SortedStringMergeOperator::kClassName())
+          .AnotherName(SortedStringMergeOperator::kNickName()),
+      [](const std::string& /*uri*/, std::unique_ptr<MergeOperator>* guard,
+         std::string* /*errmsg*/) {
+        guard->reset(new SortedStringMergeOperator());
+        return guard->get();
+      });
 
   return static_cast<int>(library.GetFactoryCount(&num_types));
 }
@@ -110,6 +119,10 @@ std::shared_ptr<MergeOperator> MergeOperators::CreateFromStringId(
     // Empty or unknown, just return nullptr
     return nullptr;
   }
+}
+
+std::shared_ptr<MergeOperator> MergeOperators::CreateSortedStringMergeOperator() {
+  return CreateFromStringId(SortedStringMergeOperator::kNickName());
 }
 
 }  // namespace ROCKSDB_NAMESPACE

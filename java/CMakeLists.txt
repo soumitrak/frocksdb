@@ -53,6 +53,7 @@ set(JNI_NATIVE_SOURCES
         rocksjni/memory_util.cc
         rocksjni/memtablejni.cc
         rocksjni/merge_operator.cc
+        rocksjni/merge_operator_jni_callback.cc
         rocksjni/native_comparator_wrapper_test.cc
         rocksjni/optimistic_transaction_db.cc
         rocksjni/optimistic_transaction_options.cc
@@ -103,7 +104,10 @@ set(JAVA_MAIN_CLASSES
   src/main/java/org/rocksdb/AbstractCompactionFilter.java
   src/main/java/org/rocksdb/AbstractCompactionFilterFactory.java
   src/main/java/org/rocksdb/AbstractComparator.java
+  src/main/java/org/rocksdb/AbstractComparatorJniBridge.java
   src/main/java/org/rocksdb/AbstractEventListener.java
+  src/main/java/org/rocksdb/AbstractMergeOperator.java
+  src/main/java/org/rocksdb/AbstractMergeOperatorJniBridge.java
   src/main/java/org/rocksdb/AbstractImmutableNativeReference.java
   src/main/java/org/rocksdb/AbstractMutableOptions.java
   src/main/java/org/rocksdb/AbstractNativeReference.java
@@ -652,6 +656,7 @@ if(${CMAKE_VERSION} VERSION_LESS "3.11.4")
           org.rocksdb.AbstractCompactionFilter
           org.rocksdb.AbstractCompactionFilterFactory
           org.rocksdb.AbstractComparator
+          org.rocksdb.AbstractMergeOperator
           org.rocksdb.AbstractEventListener
           org.rocksdb.AbstractImmutableNativeReference
           org.rocksdb.AbstractNativeReference

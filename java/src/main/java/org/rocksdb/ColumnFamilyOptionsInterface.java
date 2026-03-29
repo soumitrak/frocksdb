@@ -173,6 +173,18 @@ public interface ColumnFamilyOptionsInterface<T extends ColumnFamilyOptionsInter
   T setMergeOperator(MergeOperator mergeOperator);
 
   /**
+   * <p>Set a user-defined merge operator to be used for merging values.
+   * The merge function is invoked during compaction and at lookup time.</p>
+   *
+   * <p>The provided {@link AbstractMergeOperator} will be called from both
+   * user threads (during Get operations) and background compaction threads.</p>
+   *
+   * @param mergeOperator {@link AbstractMergeOperator} instance.
+   * @return the instance of the current object.
+   */
+  T setMergeOperator(AbstractMergeOperator mergeOperator);
+
+  /**
    * A single CompactionFilter instance to call into during compaction.
    * Allows an application to modify/delete a key-value during background
    * compaction.

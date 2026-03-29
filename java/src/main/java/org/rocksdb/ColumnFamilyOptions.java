@@ -41,6 +41,7 @@ public class ColumnFamilyOptions
     this.memTableConfig_ = other.memTableConfig_;
     this.tableFormatConfig_ = other.tableFormatConfig_;
     this.comparator_ = other.comparator_;
+    this.mergeOperator_ = other.mergeOperator_;
     this.compactionFilter_ = other.compactionFilter_;
     this.compactionFilterFactory_ = other.compactionFilterFactory_;
     this.compactionOptionsUniversal_ = other.compactionOptionsUniversal_;
@@ -222,6 +223,15 @@ public class ColumnFamilyOptions
   public ColumnFamilyOptions setMergeOperator(
       final MergeOperator mergeOperator) {
     setMergeOperator(nativeHandle_, mergeOperator.nativeHandle_);
+    return this;
+  }
+
+  @Override
+  public ColumnFamilyOptions setMergeOperator(
+      final AbstractMergeOperator mergeOperator) {
+    assert (isOwningHandle());
+    setMergeOperator(nativeHandle_, mergeOperator.nativeHandle_);
+    mergeOperator_ = mergeOperator;
     return this;
   }
 
@@ -1548,6 +1558,7 @@ public class ColumnFamilyOptions
   private MemTableConfig memTableConfig_;
   private TableFormatConfig tableFormatConfig_;
   private AbstractComparator comparator_;
+  private AbstractMergeOperator mergeOperator_;
   private AbstractCompactionFilter<? extends AbstractSlice<?>> compactionFilter_;
   private AbstractCompactionFilterFactory<? extends AbstractCompactionFilter<?>>
       compactionFilterFactory_;

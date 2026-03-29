@@ -289,6 +289,7 @@ LIB_SOURCES =                                                   \
   utilities/merge_operators/sortlist.cc                         \
   utilities/merge_operators/string_append/stringappend.cc       \
   utilities/merge_operators/string_append/stringappend2.cc      \
+  utilities/merge_operators/sorted_string/sortedstring.cc       \
   utilities/merge_operators/uint64add.cc                        \
   utilities/merge_operators/bytesxor.cc                         \
   utilities/object_registry.cc                                  \
@@ -683,6 +684,7 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/memtablejni.cc                                \
   java/rocksjni/memory_util.cc                                \
   java/rocksjni/merge_operator.cc                             \
+  java/rocksjni/merge_operator_jni_callback.cc               \
   java/rocksjni/native_comparator_wrapper_test.cc             \
   java/rocksjni/optimistic_transaction_db.cc                  \
   java/rocksjni/optimistic_transaction_options.cc             \

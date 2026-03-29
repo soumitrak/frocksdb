@@ -78,6 +78,7 @@ public class Options extends RocksObject
     this.tableFormatConfig_ = other.tableFormatConfig_;
     this.rateLimiter_ = other.rateLimiter_;
     this.comparator_ = other.comparator_;
+    this.mergeOperator_ = other.mergeOperator_;
     this.compactionFilter_ = other.compactionFilter_;
     this.compactionFilterFactory_ = other.compactionFilterFactory_;
     this.compactionOptionsUniversal_ = other.compactionOptionsUniversal_;
@@ -239,6 +240,14 @@ public class Options extends RocksObject
   @Override
   public Options setMergeOperator(final MergeOperator mergeOperator) {
     setMergeOperator(nativeHandle_, mergeOperator.nativeHandle_);
+    return this;
+  }
+
+  @Override
+  public Options setMergeOperator(final AbstractMergeOperator mergeOperator) {
+    assert (isOwningHandle());
+    setMergeOperator(nativeHandle_, mergeOperator.nativeHandle_);
+    mergeOperator_ = mergeOperator;
     return this;
   }
 
@@ -2571,6 +2580,7 @@ public class Options extends RocksObject
   private TableFormatConfig tableFormatConfig_;
   private RateLimiter rateLimiter_;
   private AbstractComparator comparator_;
+  private AbstractMergeOperator mergeOperator_;
   private AbstractCompactionFilter<? extends AbstractSlice<?>> compactionFilter_;
   private AbstractCompactionFilterFactory<? extends AbstractCompactionFilter<?>>
           compactionFilterFactory_;
