@@ -520,6 +520,7 @@ merge_benchmark_build: java merge_benchmark_sync_lib
 	$(AM_V_GEN)mkdir -p $(SAMPLES_MAIN_CLASSES)
 	$(AM_V_at)$(JAVAC_CMD) $(JAVAC_ARGS) -cp $(MAIN_CLASSES) -d $(SAMPLES_MAIN_CLASSES) \
 		$(SAMPLES_MAIN_SRC)/MergeOperatorBenchmark.java \
+		$(SAMPLES_MAIN_SRC)/JavaSortedStringMergeOperator.java \
 		$(SAMPLES_MAIN_SRC)/CppMergeOperatorBenchmark.java \
 		$(SAMPLES_MAIN_SRC)/JavaMergeOperatorBenchmark.java
 

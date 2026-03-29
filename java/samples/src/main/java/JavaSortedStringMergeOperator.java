@@ -3,13 +3,12 @@
 // COPYING file in the root directory) and Apache 2.0 License
 // (found in the LICENSE.Apache file in the root directory).
 
-package org.rocksdb;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.rocksdb.AbstractMergeOperator;
 
 /**
  * JavaSortedStringMergeOperator is a pure Java merge operator that maintains

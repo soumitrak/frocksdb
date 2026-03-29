@@ -3,7 +3,6 @@
 // COPYING file in the root directory) and Apache 2.0 License
 // (found in the LICENSE.Apache file in the root directory).
 
-import org.rocksdb.JavaSortedStringMergeOperator;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDBException;
 
