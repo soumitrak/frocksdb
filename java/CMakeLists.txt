@@ -54,6 +54,7 @@ set(JNI_NATIVE_SOURCES
         rocksjni/memtablejni.cc
         rocksjni/merge_operator.cc
         rocksjni/merge_operator_jni_callback.cc
+        rocksjni/associative_merge_operator_jni_callback.cc
         rocksjni/native_comparator_wrapper_test.cc
         rocksjni/optimistic_transaction_db.cc
         rocksjni/optimistic_transaction_options.cc

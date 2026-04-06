@@ -1,14 +1,13 @@
 # Merge Operator JNI Overhead Benchmark
 
-This directory contains two benchmark applications that measure the performance
-overhead of JNI when calling a RocksDB merge operator. Both operators maintain
-values as **comma-separated sorted strings** and implement merge-sort-style merge
-routines.
+This directory contains benchmark applications that measure the performance
+overhead of JNI when calling a RocksDB merge operator.
 
-| Application | Operator | Implementation |
-|---|---|---|
-| `CppMergeOperatorBenchmark` | `SortedStringMergeOperator` | Native C++, resolved by factory name |
-| `JavaMergeOperatorBenchmark` | `JavaSortedStringMergeOperator` | Pure Java, invoked via JNI callbacks |
+| Application | Operator | Interface | Value type |
+|---|---|---|---|
+| `CppMergeOperatorBenchmark` | `SortedStringMergeOperator` | Native C++, resolved by factory name | Comma-separated sorted strings |
+| `JavaMergeOperatorBenchmark` | `JavaSortedStringMergeOperator` | `AbstractMergeOperator` (fullMerge + partialMerge) | Comma-separated sorted strings |
+| `JavaAssociativeMergeOperatorBenchmark` | `JavaAssociativeSortedStringMergeOperator` | `AbstractAssociativeMergeOperator` (single merge method) | Comma-separated sorted strings |
 
 ---
 
@@ -66,7 +65,8 @@ make merge_benchmark_build
 ```
 
 This compiles `MergeOperatorBenchmark.java`, `CppMergeOperatorBenchmark.java`,
-and `JavaMergeOperatorBenchmark.java` into `samples/target/classes/`.
+`JavaMergeOperatorBenchmark.java`, and `JavaAssociativeMergeOperatorBenchmark.java`
+into `samples/target/classes/`.
 
 ---
 
@@ -91,7 +91,19 @@ The operator extends `AbstractMergeOperator`. Each time RocksDB evaluates a merg
 make merge_benchmark_java
 ```
 
-### Run both benchmarks in sequence
+### Run the Java associative merge operator benchmark only
+
+The operator extends `AbstractAssociativeMergeOperator` and maintains the same
+comma-separated sorted-string values as the other two benchmarks, making results
+directly comparable. Users implement a single `merge(key, existing, value)` method;
+RocksDB's C++ base class drives both `FullMergeV2` and `PartialMerge` by calling it
+once per operand.
+
+```bash
+make merge_benchmark_associative_java
+```
+
+### Run all three benchmarks in sequence
 
 ```bash
 make merge_benchmark
@@ -101,25 +113,25 @@ make merge_benchmark
 
 ## Customising Parameters
 
-Three parameters can be overridden on the command line:
+All three benchmarks share the same parameters:
 
 | Variable | Default | Description |
 |---|---|---|
 | `MERGE_BENCH_KEYS` | `10` | Number of distinct RocksDB keys |
 | `MERGE_BENCH_MERGES` | `2000` | Number of merge operands written per key |
-| `MERGE_BENCH_STRLEN` | `8` | Length of each randomly-generated string |
+| `MERGE_BENCH_STRLEN` | `8` | Length of each randomly-generated string operand |
 
 Examples (all run from `frocksdb/java/`):
 
 ```bash
-# Larger workload
+# Larger workload for all benchmarks
 make merge_benchmark MERGE_BENCH_KEYS=20 MERGE_BENCH_MERGES=5000
 
 # Shorter strings to stress merge frequency over data volume
 make merge_benchmark MERGE_BENCH_MERGES=10000 MERGE_BENCH_STRLEN=4
 
-# Only the C++ benchmark with custom params
-make merge_benchmark_cpp MERGE_BENCH_KEYS=5 MERGE_BENCH_MERGES=3000
+# Only the associative benchmark with custom params
+make merge_benchmark_associative_java MERGE_BENCH_KEYS=5 MERGE_BENCH_MERGES=3000
 ```
 
 You can also run the classes directly. The commands below must be run from
@@ -133,6 +145,10 @@ java -Djava.library.path=target \
 java -Djava.library.path=target \
      -cp "target/classes:samples/target/classes:target/*" \
      JavaMergeOperatorBenchmark /tmp/bench_java 10 2000 8
+
+java -Djava.library.path=target \
+     -cp "target/classes:samples/target/classes:target/*" \
+     JavaAssociativeMergeOperatorBenchmark /tmp/bench_java_assoc 10 2000 8
 ```
 
 ---
@@ -143,28 +159,34 @@ Each run executes four timed phases:
 
 | Phase | Operation | JNI relevance |
 |---|---|---|
-| **Write** | `MERGE_BENCH_KEYS × MERGE_BENCH_MERGES` calls to `db.merge()` | None — operands are buffered in the memtable; the merge operator is not called |
-| **Read (pre-compact)** | `db.get()` for each key | **Primary site of JNI overhead**: triggers `FullMergeV2` with all raw operands |
-| **Compact** | `db.compactRange()` | Triggers repeated `PartialMerge` calls to progressively reduce operand count |
-| **Read (post-compact)** | `db.get()` for each key | Expected to be fast for both operators — the merged value is already stored |
+| **Write** | `N × M` calls to `db.merge()` | None — operands are buffered in the memtable; the merge operator is not called |
+| **Read (pre-compact)** | `db.get()` for each key | **Primary site of JNI overhead**: triggers `FullMergeV2` which calls the Java operator once per key (sorted-string) or repeatedly per operand (associative) |
+| **Compact** | `db.compactRange()` | Triggers `PartialMerge` / associative folding in background threads via JNI callbacks |
+| **Read (post-compact)** | `db.get()` for each key | Expected to be fast — the merged value is already stored |
 
-After the timed phases, a **validation** step checks that every key's value is a
-correctly sorted, comma-separated list with the expected item count.
+After the timed phases, the sorted-string benchmarks run a **validation** step
+that checks every key's value is a correctly sorted, comma-separated list. The
+associative benchmark validates that every counter equals the expected sum.
 
 ---
 
 ## Interpreting Results
 
-The delta between the C++ and Java runs in **Phase 2 (Read pre-compact)** and
-**Phase 3 (Compact)** quantifies the JNI callback overhead:
+The delta between C++ and Java runs in **Phase 2** and **Phase 3** quantifies
+the JNI callback overhead per merge operator interface:
 
-- **Phase 2** — one JNI call per key (`FullMergeV2` with all operands). With 10
-  keys this is 10 JNI calls; the cost is dominated by the merge computation itself.
-- **Phase 3** — many JNI calls (one `PartialMerge` per adjacent operand pair
-  processed during compaction). This phase amplifies the per-call JNI overhead.
+- **`JavaMergeOperatorBenchmark`** — each `FullMergeV2` calls Java once with
+  all operands as a `ByteBuffer[]`. `PartialMerge` calls Java once per adjacent
+  operand pair during compaction.
+- **`JavaAssociativeMergeOperatorBenchmark`** — RocksDB's C++ `AssociativeMergeOperator`
+  base class drives `FullMergeV2` and `PartialMerge` internally by calling Java
+  `merge()` once per operand. The JNI crossing count per `FullMergeV2` is higher
+  (one call per operand vs. one call total), but the Java implementation is simpler
+  (one method, no operand list). Values are the same sorted strings, so results are
+  directly comparable with the other two benchmarks.
 
 **Phase 1 (Write)** and **Phase 4 (Read post-compact)** should be nearly identical
-between the two benchmarks because neither involves the merge operator.
+across all benchmarks because neither involves the merge operator.
 
 ### Sample output (indicative only — actual numbers vary by hardware)
 

@@ -16,6 +16,7 @@
 #include <memory>
 #include <string>
 
+#include "include/org_rocksdb_AbstractAssociativeMergeOperator.h"
 #include "include/org_rocksdb_AbstractMergeOperator.h"
 #include "include/org_rocksdb_StringAppendOperator.h"
 #include "include/org_rocksdb_UInt64AddOperator.h"
@@ -26,6 +27,7 @@
 #include "rocksdb/statistics.h"
 #include "rocksdb/table.h"
 #include "rocksjni/cplusplus_to_java_convert.h"
+#include "rocksjni/associative_merge_operator_jni_callback.h"
 #include "rocksjni/merge_operator_jni_callback.h"
 #include "rocksjni/portal.h"
 #include "utilities/merge_operators.h"
@@ -119,6 +121,37 @@ jlong Java_org_rocksdb_AbstractMergeOperator_createNewMergeOperator(
  * Signature: (J)V
  */
 void Java_org_rocksdb_AbstractMergeOperator_disposeInternal(
+    JNIEnv* /*env*/, jobject /*jobj*/, jlong jhandle) {
+  auto* sptr =
+      reinterpret_cast<std::shared_ptr<ROCKSDB_NAMESPACE::MergeOperator>*>(
+          jhandle);
+  delete sptr;  // delete std::shared_ptr wrapper
+}
+
+/*
+ * Class:     org_rocksdb_AbstractAssociativeMergeOperator
+ * Method:    createNewAssociativeMergeOperator
+ * Signature: ()J
+ */
+jlong Java_org_rocksdb_AbstractAssociativeMergeOperator_createNewAssociativeMergeOperator(
+    JNIEnv* env, jobject joperator) {
+  auto* callback =
+      new ROCKSDB_NAMESPACE::AssociativeMergeOperatorJniCallback(
+          env, joperator);
+  // Upcast AssociativeMergeOperator* to MergeOperator* in the shared_ptr so
+  // that the handle type is identical to AbstractMergeOperator handles.  This
+  // lets Options::setMergeOperator reuse the same native method for both.
+  auto* sptr =
+      new std::shared_ptr<ROCKSDB_NAMESPACE::MergeOperator>(callback);
+  return GET_CPLUSPLUS_POINTER(sptr);
+}
+
+/*
+ * Class:     org_rocksdb_AbstractAssociativeMergeOperator
+ * Method:    disposeInternal
+ * Signature: (J)V
+ */
+void Java_org_rocksdb_AbstractAssociativeMergeOperator_disposeInternal(
     JNIEnv* /*env*/, jobject /*jobj*/, jlong jhandle) {
   auto* sptr =
       reinterpret_cast<std::shared_ptr<ROCKSDB_NAMESPACE::MergeOperator>*>(

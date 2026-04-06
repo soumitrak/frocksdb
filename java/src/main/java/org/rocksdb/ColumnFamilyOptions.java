@@ -236,6 +236,15 @@ public class ColumnFamilyOptions
   }
 
   @Override
+  public ColumnFamilyOptions setMergeOperator(
+      final AbstractAssociativeMergeOperator mergeOperator) {
+    assert (isOwningHandle());
+    setMergeOperator(nativeHandle_, mergeOperator.nativeHandle_);
+    mergeOperator_ = mergeOperator;
+    return this;
+  }
+
+  @Override
   public ColumnFamilyOptions setCompactionFilter(
         final AbstractCompactionFilter<? extends AbstractSlice<?>>
             compactionFilter) {
@@ -1558,7 +1567,7 @@ public class ColumnFamilyOptions
   private MemTableConfig memTableConfig_;
   private TableFormatConfig tableFormatConfig_;
   private AbstractComparator comparator_;
-  private AbstractMergeOperator mergeOperator_;
+  private RocksCallbackObject mergeOperator_;
   private AbstractCompactionFilter<? extends AbstractSlice<?>> compactionFilter_;
   private AbstractCompactionFilterFactory<? extends AbstractCompactionFilter<?>>
       compactionFilterFactory_;

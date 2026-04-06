@@ -522,7 +522,8 @@ merge_benchmark_build: java merge_benchmark_sync_lib
 		$(SAMPLES_MAIN_SRC)/MergeOperatorBenchmark.java \
 		$(SAMPLES_MAIN_SRC)/JavaSortedStringMergeOperator.java \
 		$(SAMPLES_MAIN_SRC)/CppMergeOperatorBenchmark.java \
-		$(SAMPLES_MAIN_SRC)/JavaMergeOperatorBenchmark.java
+		$(SAMPLES_MAIN_SRC)/JavaMergeOperatorBenchmark.java \
+		$(SAMPLES_MAIN_SRC)/JavaAssociativeMergeOperatorBenchmark.java
 
 merge_benchmark_cpp: merge_benchmark_build
 	$(AM_V_at)@rm -rf /tmp/merge_bench_cpp
@@ -540,7 +541,15 @@ merge_benchmark_java: merge_benchmark_build
 		$(MERGE_BENCH_KEYS) $(MERGE_BENCH_MERGES) $(MERGE_BENCH_STRLEN)
 	$(AM_V_at)@rm -rf /tmp/merge_bench_java
 
-merge_benchmark: merge_benchmark_cpp merge_benchmark_java
+merge_benchmark_associative_java: merge_benchmark_build
+	$(AM_V_at)@rm -rf /tmp/merge_bench_java_associative
+	$(JAVA_CMD) $(JAVA_ARGS) -Djava.library.path=target \
+		-cp "$(MAIN_CLASSES):$(SAMPLES_MAIN_CLASSES):target/*" \
+		JavaAssociativeMergeOperatorBenchmark /tmp/merge_bench_java_associative \
+		$(MERGE_BENCH_KEYS) $(MERGE_BENCH_MERGES) $(MERGE_BENCH_STRLEN)
+	$(AM_V_at)@rm -rf /tmp/merge_bench_java_associative
+
+merge_benchmark: merge_benchmark_cpp merge_benchmark_java merge_benchmark_associative_java
 
 pmd:
 	$(MAVEN_CMD) pmd:pmd pmd:cpd pmd:check

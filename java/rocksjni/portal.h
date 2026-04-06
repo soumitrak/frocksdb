@@ -3993,6 +3993,87 @@ class AbstractMergeOperatorJniBridge : public JavaClass {
   }
 };
 
+// The portal class for org.rocksdb.AbstractAssociativeMergeOperator
+class AbstractAssociativeMergeOperatorJni : public JavaClass {
+ public:
+  /**
+   * Get the Java Class org.rocksdb.AbstractAssociativeMergeOperator
+   *
+   * @param env A pointer to the Java environment
+   *
+   * @return The Java Class or nullptr if one of the
+   *     ClassFormatError, ClassCircularityError, NoClassDefFoundError,
+   *     OutOfMemoryError or ExceptionInInitializerError exceptions is thrown
+   */
+  static jclass getJClass(JNIEnv* env) {
+    return JavaClass::getJClass(env,
+        "org/rocksdb/AbstractAssociativeMergeOperator");
+  }
+
+  /**
+   * Get the Java Method: AbstractAssociativeMergeOperator#name
+   *
+   * @param env A pointer to the Java environment
+   *
+   * @return The Java Method ID or nullptr if the method could not be retrieved
+   */
+  static jmethodID getNameMethodId(JNIEnv* env) {
+    jclass jclazz = getJClass(env);
+    if (jclazz == nullptr) {
+      return nullptr;
+    }
+    static jmethodID mid =
+        env->GetMethodID(jclazz, "name", "()Ljava/lang/String;");
+    assert(mid != nullptr);
+    return mid;
+  }
+};
+
+// The portal class for org.rocksdb.AbstractAssociativeMergeOperatorJniBridge
+class AbstractAssociativeMergeOperatorJniBridge : public JavaClass {
+ public:
+  /**
+   * Get the Java Class org.rocksdb.AbstractAssociativeMergeOperatorJniBridge
+   *
+   * @param env A pointer to the Java environment
+   *
+   * @return The Java Class or nullptr if one of the
+   *     ClassFormatError, ClassCircularityError, NoClassDefFoundError,
+   *     OutOfMemoryError or ExceptionInInitializerError exceptions is thrown
+   */
+  static jclass getJClass(JNIEnv* env) {
+    return JavaClass::getJClass(env,
+        "org/rocksdb/AbstractAssociativeMergeOperatorJniBridge");
+  }
+
+  /**
+   * Get the Java Method: AbstractAssociativeMergeOperatorJniBridge#mergeInternal
+   *
+   * Signature: (Lorg/rocksdb/AbstractAssociativeMergeOperator;
+   *             Ljava/nio/ByteBuffer;ILjava/nio/ByteBuffer;I
+   *             Ljava/nio/ByteBuffer;I)[B
+   *
+   * @param env    A pointer to the Java environment
+   * @param jclazz the AbstractAssociativeMergeOperatorJniBridge class
+   *
+   * @return The Java Method ID or nullptr if the method could not be retrieved
+   */
+  static jmethodID getMergeInternalMethodId(JNIEnv* env, jclass jclazz) {
+    if (jclazz == nullptr) {
+      return nullptr;
+    }
+
+    static jmethodID mid = env->GetStaticMethodID(jclazz,
+        "mergeInternal",
+        "(Lorg/rocksdb/AbstractAssociativeMergeOperator;"
+        "Ljava/nio/ByteBuffer;I"
+        "Ljava/nio/ByteBuffer;I"
+        "Ljava/nio/ByteBuffer;I)[B");
+    assert(mid != nullptr);
+    return mid;
+  }
+};
+
 // The portal class for org.rocksdb.AbstractSlice
 class AbstractSliceJni
     : public NativeRocksMutableObject<const ROCKSDB_NAMESPACE::Slice*,

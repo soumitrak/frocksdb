@@ -685,6 +685,7 @@ JNI_NATIVE_SOURCES =                                          \
   java/rocksjni/memory_util.cc                                \
   java/rocksjni/merge_operator.cc                             \
   java/rocksjni/merge_operator_jni_callback.cc               \
+  java/rocksjni/associative_merge_operator_jni_callback.cc   \
   java/rocksjni/native_comparator_wrapper_test.cc             \
   java/rocksjni/optimistic_transaction_db.cc                  \
   java/rocksjni/optimistic_transaction_options.cc             \

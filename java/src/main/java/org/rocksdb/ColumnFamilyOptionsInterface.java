@@ -185,6 +185,24 @@ public interface ColumnFamilyOptionsInterface<T extends ColumnFamilyOptionsInter
   T setMergeOperator(AbstractMergeOperator mergeOperator);
 
   /**
+   * <p>Set a user-defined associative merge operator to be used for merging
+   * values. The merge function is invoked during compaction and at lookup
+   * time.</p>
+   *
+   * <p>Use this when your merge operation is associative - for example,
+   * integer addition or string append. Only a single {@link AbstractAssociativeMergeOperator#merge} method
+   * needs to be implemented; RocksDB handles chaining operands automatically.</p>
+   *
+   * <p>The provided {@link AbstractAssociativeMergeOperator} will be called
+   * from both user threads (during Get operations) and background compaction
+   * threads.</p>
+   *
+   * @param mergeOperator {@link AbstractAssociativeMergeOperator} instance.
+   * @return the instance of the current object.
+   */
+  T setMergeOperator(AbstractAssociativeMergeOperator mergeOperator);
+
+  /**
    * A single CompactionFilter instance to call into during compaction.
    * Allows an application to modify/delete a key-value during background
    * compaction.
