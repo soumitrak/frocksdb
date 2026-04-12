@@ -40,10 +40,29 @@ struct TlJniEnvCache {
       return env;
     }
     jvm = vm;
-    jboolean attached = JNI_FALSE;
-    env = JniUtil::getJniEnv(jvm, &attached);
-    owned = (attached == JNI_TRUE);
-    return env;
+
+    // Fast path: thread is already attached (e.g. the Java main thread).
+    const jint rc =
+        jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6);
+    if (rc == JNI_OK) {
+      owned = false;  // we did not attach; do not detach in destructor
+      return env;
+    }
+
+    // C++ background thread (compaction/flush): attach as a DAEMON thread so
+    // the JVM does not wait for it on shutdown.  AttachCurrentThread (non-daemon)
+    // would cause DestroyJavaVM to block indefinitely if these threads outlive
+    // main().
+    JavaVMAttachArgs args{JNI_VERSION_1_6, nullptr, nullptr};
+    const jint rs = jvm->AttachCurrentThreadAsDaemon(
+        reinterpret_cast<void**>(&env), &args);
+    if (rs == JNI_OK) {
+      owned = true;  // we attached; destructor must detach
+      return env;
+    }
+
+    std::cerr << "TlJniEnvCache: fatal: AttachCurrentThreadAsDaemon failed\n";
+    return nullptr;
   }
 };
 thread_local TlJniEnvCache tl_env_cache;
@@ -118,16 +137,37 @@ AssociativeMergeOperatorJniCallback::AssociativeMergeOperatorJniCallback(
   }
 
   // Shared unref handler for all input buffer pools and the output buffer pool.
-  // Frees the C++ backing allocation and the JNI global ref on thread exit.
+  // Called by ThreadLocalPtr when a thread exits (normal exit or JVM shutdown).
   auto unref = [](void* ptr) {
     auto* tlb = reinterpret_cast<MergeTlBuf*>(ptr);
-    jboolean attached = JNI_FALSE;
-    JNIEnv* e = JniUtil::getJniEnv(tlb->jvm, &attached);
+
+    // Always free the C++ backing memory — no JNI required.
+    delete[] tlb->backing;
+
+    // Delete the JNI global ref only if the JVM is still reachable.
+    // During JVM shutdown, daemon threads are terminated and
+    // AttachCurrentThread/AttachCurrentThreadAsDaemon both fail.  In that case
+    // skip DeleteGlobalRef silently — the JVM releases all global refs as part
+    // of its own shutdown sequence, so skipping is safe and avoids the
+    // "Fatal: could not attach current thread to JVM!" error from JniUtil.
+    JNIEnv* e = nullptr;
+    jboolean need_detach = JNI_FALSE;
+    const jint rc =
+        tlb->jvm->GetEnv(reinterpret_cast<void**>(&e), JNI_VERSION_1_6);
+    if (rc == JNI_EDETACHED) {
+      JavaVMAttachArgs args{JNI_VERSION_1_6, nullptr, nullptr};
+      if (tlb->jvm->AttachCurrentThreadAsDaemon(
+              reinterpret_cast<void**>(&e), &args) == JNI_OK) {
+        need_detach = JNI_TRUE;
+      } else {
+        e = nullptr;  // JVM shutting down — skip global ref cleanup
+      }
+    }
     if (e != nullptr) {
-      void* buf = e->GetDirectBufferAddress(tlb->jbuf);
-      delete[] static_cast<char*>(buf);
       e->DeleteGlobalRef(tlb->jbuf);
-      JniUtil::releaseJniEnv(tlb->jvm, attached);
+      if (need_detach) {
+        tlb->jvm->DetachCurrentThread();
+      }
     }
     delete tlb;
   };
@@ -198,7 +238,7 @@ jobject AssociativeMergeOperatorJniCallback::GetOrAllocBuffer(
         delete[] backing;
         return nullptr;
       }
-      tlb = new MergeTlBuf(m_jvm, global);
+      tlb = new MergeTlBuf(m_jvm, global, backing);
       tl_buf->Reset(tlb);
     }
     void* buf_ptr = env->GetDirectBufferAddress(tlb->jbuf);
@@ -242,7 +282,7 @@ jobject AssociativeMergeOperatorJniCallback::GetOrAllocOutputBuffer(
     delete[] backing;
     return nullptr;
   }
-  m_tl_output_buf->Reset(new MergeTlBuf(m_jvm, global));
+  m_tl_output_buf->Reset(new MergeTlBuf(m_jvm, global, backing));
   return global;
 }
 

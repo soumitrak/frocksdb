@@ -71,12 +71,16 @@ class AssociativeMergeOperatorJniCallback
              Logger* logger) const override;
 
  private:
-  // Holds a thread-local direct ByteBuffer (as a JNI global ref) and the JVM
-  // pointer needed to clean up the global ref and backing memory on thread exit.
+  // Holds a thread-local direct ByteBuffer (as a JNI global ref), the raw C++
+  // backing pointer, and the JVM pointer needed to release the global ref on
+  // thread exit.  Storing backing separately lets the unref handler free C++
+  // memory without needing a live JNIEnv (important during JVM shutdown).
   struct MergeTlBuf {
     JavaVM* jvm;
-    jobject jbuf;  // JNI global ref to a direct ByteBuffer
-    MergeTlBuf(JavaVM* _jvm, jobject _jbuf) : jvm(_jvm), jbuf(_jbuf) {}
+    jobject jbuf;     // JNI global ref to a direct ByteBuffer
+    char*   backing;  // C++ heap memory that jbuf wraps
+    MergeTlBuf(JavaVM* _jvm, jobject _jbuf, char* _backing)
+        : jvm(_jvm), jbuf(_jbuf), backing(_backing) {}
   };
 
   // Data up to this many bytes is copied into a pooled thread-local ByteBuffer
