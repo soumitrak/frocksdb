@@ -486,8 +486,8 @@ db_bench: java
 # make rocksdbjavastatic from the repository root).
 
 MERGE_BENCH_KEYS   ?= 10
-MERGE_BENCH_MERGES ?= 2000
-MERGE_BENCH_STRLEN ?= 8
+MERGE_BENCH_MERGES ?= 10000
+MERGE_BENCH_STRLEN ?= 1024
 
 # Path to the CMake build output directory (override if you built elsewhere)
 CMAKE_BUILD_DIR ?= ../build
@@ -526,28 +526,28 @@ merge_benchmark_build: java merge_benchmark_sync_lib
 		$(SAMPLES_MAIN_SRC)/JavaAssociativeMergeOperatorBenchmark.java
 
 merge_benchmark_cpp: merge_benchmark_build
-	$(AM_V_at)@rm -rf /tmp/merge_bench_cpp
+	$(AM_V_at)@rm -rf /tmp/frocksdb
 	$(JAVA_CMD) $(JAVA_ARGS) -Djava.library.path=target \
 		-cp "$(MAIN_CLASSES):$(SAMPLES_MAIN_CLASSES):target/*" \
-		CppMergeOperatorBenchmark /tmp/merge_bench_cpp \
+		CppMergeOperatorBenchmark /tmp/frocksdb \
 		$(MERGE_BENCH_KEYS) $(MERGE_BENCH_MERGES) $(MERGE_BENCH_STRLEN)
-	$(AM_V_at)@rm -rf /tmp/merge_bench_cpp
+	#$(AM_V_at)@rm -rf /tmp/frocksdb
 
 merge_benchmark_java: merge_benchmark_build
-	$(AM_V_at)@rm -rf /tmp/merge_bench_java
+	$(AM_V_at)@rm -rf /tmp/frocksdb
 	$(JAVA_CMD) $(JAVA_ARGS) -Djava.library.path=target \
 		-cp "$(MAIN_CLASSES):$(SAMPLES_MAIN_CLASSES):target/*" \
-		JavaMergeOperatorBenchmark /tmp/merge_bench_java \
+		JavaMergeOperatorBenchmark /tmp/frocksdb \
 		$(MERGE_BENCH_KEYS) $(MERGE_BENCH_MERGES) $(MERGE_BENCH_STRLEN)
-	$(AM_V_at)@rm -rf /tmp/merge_bench_java
+	#$(AM_V_at)@rm -rf /tmp/frocksdb
 
 merge_benchmark_associative_java: merge_benchmark_build
-	$(AM_V_at)@rm -rf /tmp/merge_bench_java_associative
+	$(AM_V_at)@rm -rf /tmp/frocksdb
 	$(JAVA_CMD) $(JAVA_ARGS) -Djava.library.path=target \
 		-cp "$(MAIN_CLASSES):$(SAMPLES_MAIN_CLASSES):target/*" \
-		JavaAssociativeMergeOperatorBenchmark /tmp/merge_bench_java_associative \
+		JavaAssociativeMergeOperatorBenchmark /tmp/frocksdb \
 		$(MERGE_BENCH_KEYS) $(MERGE_BENCH_MERGES) $(MERGE_BENCH_STRLEN)
-	$(AM_V_at)@rm -rf /tmp/merge_bench_java_associative
+	#$(AM_V_at)@rm -rf /tmp/frocksdb
 
 merge_benchmark: merge_benchmark_cpp merge_benchmark_java merge_benchmark_associative_java
 

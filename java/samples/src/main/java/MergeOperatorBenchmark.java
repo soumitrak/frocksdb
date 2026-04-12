@@ -6,6 +6,9 @@
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.rocksdb.InfoLogLevel;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -49,7 +52,38 @@ public abstract class MergeOperatorBenchmark {
     RocksDB.loadLibrary();
   }
 
+  private static final Logger JAVA_LOG =
+      Logger.getLogger(MergeOperatorBenchmark.class.getName());
+
   private static final String ALPHABET = "abcdefghijklmnopqrstuvwxyz";
+
+  /**
+   * Bridges RocksDB internal log messages into {@link java.util.logging}.
+   *
+   * <p>The instance must be kept alive (not GC'd) for as long as the DB is
+   * open, because the native side holds only a weak reference.  We close it
+   * together with the DB in the try-with-resources block inside {@link #run}.
+   */
+  private static final class RocksLogger extends org.rocksdb.Logger {
+
+    RocksLogger(final Options options) {
+      super(options);
+    }
+
+    @Override
+    protected void log(final InfoLogLevel infoLogLevel, final String logMsg) {
+      final Level javaLevel;
+      switch (infoLogLevel) {
+        case DEBUG_LEVEL:  javaLevel = Level.FINE;    break;
+        case INFO_LEVEL:   javaLevel = Level.INFO;    break;
+        case WARN_LEVEL:   javaLevel = Level.WARNING; break;
+        case ERROR_LEVEL:
+        case FATAL_LEVEL:  javaLevel = Level.SEVERE;  break;
+        default:           javaLevel = Level.INFO;    break;
+      }
+      JAVA_LOG.log(javaLevel, "[RocksDB] {0}", logMsg);
+    }
+  }
 
   /** Configures the merge operator on the given Options before opening the DB. */
   protected abstract void configureOptions(Options opts);
@@ -79,6 +113,12 @@ public abstract class MergeOperatorBenchmark {
     System.out.println("  String len : " + stringLen);
     System.out.println();
 
+    // Add dbPath to the log context for easier correlation of RocksDB log messages.
+    JAVA_LOG.info("Benchmark directory: " + dbPath);
+    JAVA_LOG.info("Starting benchmark with operator=" + operatorDescription()
+        + " numKeys=" + numKeys + " mergesPerKey=" + mergesPerKey
+        + " stringLen=" + stringLen);
+
     // Pre-generate all test data so data generation cost is excluded from timing
     final Random rng = new Random(0xdeadbeefL);
     final byte[][] keyBytes = new byte[numKeys][];
@@ -90,14 +130,25 @@ public abstract class MergeOperatorBenchmark {
       }
     }
 
+    JAVA_LOG.info("Test data generated: " + numKeys + " keys, "
+        + mergesPerKey + " merges/key, total " + (numKeys * mergesPerKey) + " merge operands");
+
     deleteDirectory(dbPath);
 
-    try (final Options opts = new Options().setCreateIfMissing(true)) {
+    JAVA_LOG.info("Starting MergeOperatorBenchmark: operator=" + operatorDescription()
+        + " keys=" + numKeys + " mergesPerKey=" + mergesPerKey
+        + " stringLen=" + stringLen);
+
+    try (final Options opts = new Options()
+             .setCreateIfMissing(true)
+             .setInfoLogLevel(InfoLogLevel.INFO_LEVEL)) {
       configureOptions(opts);
 
-      try (final RocksDB db = RocksDB.open(opts, dbPath)) {
+      try (final RocksLogger rocksLogger = new RocksLogger(opts);
+           final RocksDB db = RocksDB.open(opts, dbPath)) {
+        opts.setLogger(rocksLogger);
 
-        // ── Phase 1: Write ───────────────────────────────────────────────────
+        // ── Phase 1: Merge ───────────────────────────────────────────────────
         final long writeStart = System.nanoTime();
         for (int k = 0; k < numKeys; k++) {
           for (int m = 0; m < mergesPerKey; m++) {
@@ -105,7 +156,7 @@ public abstract class MergeOperatorBenchmark {
           }
         }
         final long writeNs = System.nanoTime() - writeStart;
-        printPhase("Phase 1 (Write)", writeNs,
+        printPhase("Phase 1 (Merge)", writeNs,
             numKeys * mergesPerKey + " merge calls, "
                 + String.format("%.2f", nsPerOp(writeNs, numKeys * mergesPerKey))
                 + " ns/op");
@@ -150,12 +201,12 @@ public abstract class MergeOperatorBenchmark {
         System.out.println();
         System.out.println("── Summary ─────────────────────────────────────────────");
         final long totalJniBoundaryNs = readPreNs + compactNs;
-        System.out.printf("  Write                  : %8d ms%n", writeNs / 1_000_000);
-        System.out.printf("  Read (pre-compact)     : %8d ms  ← FullMerge cost%n",
+        System.out.printf("  Merge                  : %8d ms%n", writeNs / 1_000_000);
+        System.out.printf("  Get (pre-compact)     : %8d ms  ← FullMerge cost%n",
             readPreNs / 1_000_000);
         System.out.printf("  Compact                : %8d ms  ← PartialMerge cost%n",
             compactNs / 1_000_000);
-        System.out.printf("  Read (post-compact)    : %8d ms%n", readPostNs / 1_000_000);
+        System.out.printf("  Get (post-compact)    : %8d ms%n", readPostNs / 1_000_000);
         System.out.printf("  Merge-relevant total   : %8d ms  (read + compact)%n",
             totalJniBoundaryNs / 1_000_000);
         System.out.println();
@@ -167,10 +218,22 @@ public abstract class MergeOperatorBenchmark {
               + "  post=" + passedPost + "/" + numKeys);
         }
         System.out.println();
+
+        final boolean passed = passedPre == numKeys && passedPost == numKeys;
+        JAVA_LOG.log(passed ? Level.INFO : Level.WARNING,
+            "Benchmark finished: operator={0} write={1}ms readPre={2}ms"
+                + " compact={3}ms readPost={4}ms validation={5}",
+            new Object[]{
+                operatorDescription(),
+                writeNs / 1_000_000,
+                readPreNs / 1_000_000,
+                compactNs / 1_000_000,
+                readPostNs / 1_000_000,
+                passed ? "PASSED" : "FAILED"});
       }
     }
 
-    deleteDirectory(dbPath);
+    // SK: deleteDirectory(dbPath);
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────

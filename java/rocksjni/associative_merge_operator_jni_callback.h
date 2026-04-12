@@ -9,9 +9,11 @@
 #include <jni.h>
 #include <memory>
 #include <string>
+#include "port/port.h"
 #include "rocksdb/merge_operator.h"
 #include "rocksdb/slice.h"
 #include "rocksjni/jnicallback.h"
+#include "util/thread_local.h"
 
 namespace ROCKSDB_NAMESPACE {
 
@@ -69,6 +71,18 @@ class AssociativeMergeOperatorJniCallback
              Logger* logger) const override;
 
  private:
+  // Holds a thread-local direct ByteBuffer (as a JNI global ref) and the JVM
+  // pointer needed to clean up the global ref and backing memory on thread exit.
+  struct MergeTlBuf {
+    JavaVM* jvm;
+    jobject jbuf;  // JNI global ref to a direct ByteBuffer
+    MergeTlBuf(JavaVM* _jvm, jobject _jbuf) : jvm(_jvm), jbuf(_jbuf) {}
+  };
+
+  // Data up to this many bytes is copied into a pooled thread-local ByteBuffer
+  // instead of creating a fresh NewDirectByteBuffer on every Merge call.
+  static constexpr int32_t kMaxReusedBufferSize = 1024;
+
   // Cached operator name (fetched once from Java in constructor)
   std::unique_ptr<char[]> m_name;
 
@@ -77,15 +91,32 @@ class AssociativeMergeOperatorJniCallback
   jclass m_jbytebuffer_clazz;
   jmethodID m_jmerge_mid;
 
-  // Helper: copy a jbyteArray result into a C++ string
-  bool CopyByteArrayToString(JNIEnv* env, jbyteArray jarray,
-                              std::string* output) const;
+  // Thread-local ByteBuffer pools for the three Merge input arguments.
+  ThreadLocalPtr* m_tl_buf_key;
+  ThreadLocalPtr* m_tl_buf_existing;
+  ThreadLocalPtr* m_tl_buf_value;
 
-  // Prevent copying
+  // Thread-local output ByteBuffer backed by C++ heap memory.
+  // Java writes the merge result directly into it, eliminating the
+  // jbyteArray allocation and the GetByteArrayRegion copy.
+  static constexpr size_t kOutputBufCapacity = 64 * 1024 * 1024;  // 64 MiB
+  ThreadLocalPtr* m_tl_output_buf;
+
+  // Returns a local-ref ByteBuffer wrapping src. If src.size() fits within
+  // kMaxReusedBufferSize the data is memcpy'd into the per-thread pooled buffer
+  // (avoiding a JNI allocation). Otherwise a fresh NewDirectByteBuffer is
+  // returned. In both cases the caller must DeleteLocalRef the result.
+  jobject GetOrAllocBuffer(JNIEnv* env, const Slice& src,
+                           ThreadLocalPtr* tl_buf) const;
+
+  // Returns the per-thread output ByteBuffer global ref (lazily allocated at
+  // kOutputBufCapacity). The caller must NOT DeleteLocalRef this.
+  jobject GetOrAllocOutputBuffer(JNIEnv* env) const;
+
   AssociativeMergeOperatorJniCallback(
-      const AssociativeMergeOperatorJniCallback&);
+      const AssociativeMergeOperatorJniCallback&) = delete;
   AssociativeMergeOperatorJniCallback& operator=(
-      const AssociativeMergeOperatorJniCallback&);
+      const AssociativeMergeOperatorJniCallback&) = delete;
 };
 
 }  // namespace ROCKSDB_NAMESPACE

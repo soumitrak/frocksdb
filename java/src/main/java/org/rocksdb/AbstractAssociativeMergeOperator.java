@@ -58,6 +58,16 @@ public abstract class AbstractAssociativeMergeOperator extends RocksCallbackObje
    * <p>This method is called during Get() and compaction. RocksDB will call
    * it repeatedly to fold multiple operands into a base value.
    *
+   * <p>The result must be written directly into {@code output} starting at
+   * its current position. The framework pre-clears the buffer before each
+   * call (position=0, limit=capacity). Implementations must not flip or
+   * rewind the buffer — the framework reads {@code output.position()} bytes
+   * after the call returns.
+   *
+   * <p>The output buffer is backed by C++ memory, so writing into it avoids
+   * any Java heap allocation for the result and eliminates the JNI copy that
+   * would otherwise be needed to return a {@code byte[]} to the native side.
+   *
    * @param key      a ByteBuffer containing the key being merged
    *                 (position=0, limit=key length, read-only)
    * @param existing a ByteBuffer containing the existing value for this key,
@@ -65,11 +75,14 @@ public abstract class AbstractAssociativeMergeOperator extends RocksCallbackObje
    *                 (if non-null: position=0, limit=value length, read-only)
    * @param value    a ByteBuffer containing the merge operand to apply
    *                 (position=0, limit=operand length, read-only)
+   * @param output   a writable direct ByteBuffer to receive the merged result;
+   *                 write the result bytes starting at the current position
    *
-   * @return the merged result as a byte array, or null to signal failure.
-   *         Returning null causes the merge to fail.
+   * @return the number of bytes written to {@code output} (≥ 0), or -1 to
+   *         signal a merge failure.
    */
-  public abstract byte[] merge(ByteBuffer key, ByteBuffer existing, ByteBuffer value);
+  public abstract int merge(ByteBuffer key, ByteBuffer existing, ByteBuffer value,
+      ByteBuffer output);
 
   private native long createNewAssociativeMergeOperator();
 }

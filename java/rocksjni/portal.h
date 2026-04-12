@@ -4051,7 +4051,10 @@ class AbstractAssociativeMergeOperatorJniBridge : public JavaClass {
    *
    * Signature: (Lorg/rocksdb/AbstractAssociativeMergeOperator;
    *             Ljava/nio/ByteBuffer;ILjava/nio/ByteBuffer;I
-   *             Ljava/nio/ByteBuffer;I)[B
+   *             Ljava/nio/ByteBuffer;ILjava/nio/ByteBuffer;)I
+   *
+   * The final ByteBuffer argument is a direct buffer backed by C++ memory
+   * that receives the merge result; the return value is bytes written (int).
    *
    * @param env    A pointer to the Java environment
    * @param jclazz the AbstractAssociativeMergeOperatorJniBridge class
@@ -4068,7 +4071,8 @@ class AbstractAssociativeMergeOperatorJniBridge : public JavaClass {
         "(Lorg/rocksdb/AbstractAssociativeMergeOperator;"
         "Ljava/nio/ByteBuffer;I"
         "Ljava/nio/ByteBuffer;I"
-        "Ljava/nio/ByteBuffer;I)[B");
+        "Ljava/nio/ByteBuffer;I"
+        "Ljava/nio/ByteBuffer;)I");
     assert(mid != nullptr);
     return mid;
   }

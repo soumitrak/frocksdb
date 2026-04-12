@@ -49,13 +49,12 @@ public class AbstractAssociativeMergeOperatorTest {
     }
 
     @Override
-    public byte[] merge(final ByteBuffer key, final ByteBuffer existing,
-                        final ByteBuffer value) {
+    public int merge(final ByteBuffer key, final ByteBuffer existing,
+                     final ByteBuffer value, final ByteBuffer output) {
       final long existingLong = existing == null ? 0L : existing.getLong();
       final long delta = value.getLong();
-      final byte[] result = new byte[Long.BYTES];
-      ByteBuffer.wrap(result).order(ByteOrder.BIG_ENDIAN).putLong(existingLong + delta);
-      return result;
+      output.order(ByteOrder.BIG_ENDIAN).putLong(existingLong + delta);
+      return Long.BYTES;
     }
   }
 
@@ -79,19 +78,18 @@ public class AbstractAssociativeMergeOperatorTest {
     }
 
     @Override
-    public byte[] merge(final ByteBuffer key, final ByteBuffer existing,
-                        final ByteBuffer value) {
-      final StringBuilder sb = new StringBuilder();
+    public int merge(final ByteBuffer key, final ByteBuffer existing,
+                     final ByteBuffer value, final ByteBuffer output) {
       if (existing != null && existing.remaining() > 0) {
         final byte[] existingBytes = new byte[existing.remaining()];
         existing.get(existingBytes);
-        sb.append(new String(existingBytes, StandardCharsets.UTF_8));
-        sb.append(delimiter);
+        output.put(existingBytes);
+        output.put(delimiter.getBytes(StandardCharsets.UTF_8));
       }
       final byte[] valueBytes = new byte[value.remaining()];
       value.get(valueBytes);
-      sb.append(new String(valueBytes, StandardCharsets.UTF_8));
-      return sb.toString().getBytes(StandardCharsets.UTF_8);
+      output.put(valueBytes);
+      return output.position();
     }
   }
 

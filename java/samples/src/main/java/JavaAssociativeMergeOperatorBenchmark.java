@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 import org.rocksdb.AbstractAssociativeMergeOperator;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDBException;
@@ -42,6 +43,7 @@ import org.rocksdb.RocksDBException;
  * <p>Default parameters: 10 keys, 2000 merges/key, 8-character strings.
  */
 public class JavaAssociativeMergeOperatorBenchmark extends MergeOperatorBenchmark {
+  // public static final Logger LOG = Logger.getLogger(JavaAssociativeMergeOperatorBenchmark.class.getName());
 
   private static final int DEFAULT_NUM_KEYS = 10;
   private static final int DEFAULT_MERGES_PER_KEY = 2000;
@@ -64,8 +66,9 @@ public class JavaAssociativeMergeOperatorBenchmark extends MergeOperatorBenchmar
     }
 
     @Override
-    public byte[] merge(final ByteBuffer key, final ByteBuffer existing,
-                        final ByteBuffer value) {
+    public int merge(final ByteBuffer key, final ByteBuffer existing,
+                     final ByteBuffer value, final ByteBuffer output) {
+      // LOG.info("merge() start");
       final String[] leftItems =
           (existing != null && existing.remaining() > 0)
               ? readString(existing).split(",", -1)
@@ -90,7 +93,16 @@ public class JavaAssociativeMergeOperatorBenchmark extends MergeOperatorBenchmar
         merged.add(rightItems[j++]);
       }
 
-      return String.join(",", merged).getBytes(StandardCharsets.UTF_8);
+      // Write directly into the C++-backed output ByteBuffer — no byte[] allocation,
+      // no GetByteArrayRegion copy on the JNI return path.
+      boolean first = true;
+      for (final String item : merged) {
+        if (!first) output.put((byte) ',');
+        first = false;
+        output.put(item.getBytes(StandardCharsets.UTF_8));
+      }
+      // LOG.info("merge() end");
+      return output.position();
     }
 
     private static String readString(final ByteBuffer buf) {
@@ -113,7 +125,7 @@ public class JavaAssociativeMergeOperatorBenchmark extends MergeOperatorBenchmar
 
   public static void main(final String[] args) throws RocksDBException {
     final String dbPath =
-        args.length > 0 ? args[0] : "/tmp/merge_bench_java_associative";
+        args.length > 0 ? args[0] : "/tmp/frocksdb";
     final int numKeys =
         args.length > 1 ? Integer.parseInt(args[1]) : DEFAULT_NUM_KEYS;
     final int mergesPerKey =
