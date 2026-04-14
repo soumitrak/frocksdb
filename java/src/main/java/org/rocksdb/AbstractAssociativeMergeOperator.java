@@ -61,7 +61,7 @@ public abstract class AbstractAssociativeMergeOperator extends RocksCallbackObje
    * <p>The result must be written directly into {@code output} starting at
    * its current position. The framework pre-clears the buffer before each
    * call (position=0, limit=capacity). Implementations must not flip or
-   * rewind the buffer — the framework reads {@code output.position()} bytes
+   * rewind the buffer - the framework reads {@code output.position()} bytes
    * after the call returns.
    *
    * <p>The output buffer is backed by C++ memory, so writing into it avoids
@@ -78,7 +78,7 @@ public abstract class AbstractAssociativeMergeOperator extends RocksCallbackObje
    * @param output   a writable direct ByteBuffer to receive the merged result;
    *                 write the result bytes starting at the current position
    *
-   * @return the number of bytes written to {@code output} (≥ 0), or -1 to
+   * @return the number of bytes written to {@code output} (&ge; 0), or -1 to
    *         signal a merge failure.
    */
   public abstract int merge(ByteBuffer key, ByteBuffer existing, ByteBuffer value,

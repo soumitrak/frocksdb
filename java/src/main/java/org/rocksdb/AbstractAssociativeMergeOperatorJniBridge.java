@@ -33,7 +33,7 @@ class AbstractAssociativeMergeOperatorJniBridge {
    * @param valueLen    number of valid bytes in value
    * @param output      direct ByteBuffer backed by C++ memory that receives the result
    *
-   * @return bytes written to output (≥ 0), or -1 if the merge failed
+   * @return bytes written to output (&ge; 0), or -1 if the merge failed
    */
   @SuppressWarnings("PMD.UnusedPrivateMethod")
   private static int mergeInternal(
